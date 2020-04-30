@@ -1,0 +1,43 @@
+#%RAML 1.0
+title: S3 API
+
+/bucket:
+  post:
+    description: Create new S3 bucket (folder)
+    body:
+      application/json:
+        properties:
+          bucketName: string
+    responses:
+      201:
+
+
+
+/object:
+  post:
+    description: Create new S3 object (file)
+    body:
+      application/json:
+        properties:
+          bucketName: string
+          fileName: string
+    responses:
+      201:
+        description: Return new object URL
+        body:
+          application/json:
+            type: any
+
+  delete:
+    description: Delete S3 object and more to new bucket
+    body:
+      application/json:
+        properties:
+          bucketName: string
+          fileName: string
+          newBucketName: string
+    responses:
+      201:
+        
+
+

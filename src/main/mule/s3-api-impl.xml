@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:s3="http://www.mulesoft.org/schema/mule/s3"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<flow name="s3-create-bucket" doc:id="ab440c13-721e-4494-9ad4-d77260411904" >
+		<set-variable value="#[payload.bucketName]" doc:name="Set bucket name" doc:id="1878a57d-4efa-4e98-8b9f-6be5aa0b23f0" variableName="bucketName"/>
+		<s3:create-bucket doc:name="Create bucket" doc:id="4b89802e-0c35-428c-a403-1fbacf083d38" config-ref="Amazon_S3_Configuration" bucketName="#[vars.bucketName]"/>
+		<s3:get-bucket-location doc:name="Get bucket location" doc:id="90792bb0-adfc-46cd-9f70-d55d73283bf4" config-ref="Amazon_S3_Configuration" bucketName="#[vars.bucketName]"/>
+		<ee:transform doc:name="Transform Message" doc:id="6b38b046-3676-45ce-832a-34ddee247020" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="s3-create-file" doc:id="a717e582-54b5-455e-adf0-439fc5196dd3" >
+		<set-variable value="#[payload.bucketName]" doc:name="Set bucket name" doc:id="608b8b1f-c18b-49ab-88dc-e99d247560b2" variableName="bucketName" />
+		<set-variable value="#[payload.fileName]" doc:name="Set file name" doc:id="0d52e4fe-f05e-4b4f-be9d-f31d550ae6b5" variableName="fileName"/>
+		<file:read doc:name="Read file from local file system" doc:id="a541460e-013c-4c52-8bc6-159ab93c29d0" config-ref="File_Config-Downloads" path="#[vars.fileName]"/>
+		<s3:create-object doc:name="Create file in S3" doc:id="9868c50d-47d2-41bb-8d5e-2fa2dc1d0ca4" config-ref="Amazon_S3_Configuration" bucketName="#[vars.bucketName]" key="#[vars.fileName]" contentLength="#[sizeOf(payload.^raw)]" acl="PUBLIC_READ">
+		</s3:create-object>
+		<ee:transform doc:name="Transform Message - Return Object URL" doc:id="ca5a4256-0fc1-4de9-b543-7fb68f264779" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"object_url": "https://s3.amazonaws.com/" 
+		++ (vars.bucketName default "")
+		++ "/" 
+		++ (vars.fileName default "")
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="s3-move-object" doc:id="54742b58-d0fc-4076-abe7-ca7cf0a8d404" >
+		<set-variable value="#[payload.fileName]" doc:name="Set Variable" doc:id="79364e4d-556f-4a96-9deb-ebfb47b51f34" variableName="fileName"/>
+		<set-variable value="#[payload.bucketName]" doc:name="Set Variable" doc:id="3d6a2613-6aea-4f1c-8010-cf60fedaa94b" variableName="cBucketName"/>
+		<set-variable value="#[payload.newBucketName]" doc:name="Set Variable" doc:id="cc456333-e72a-4865-a25d-8370af36a6e8" variableName="nBucketName"/>
+		<s3:copy-object doc:name="Copy object" doc:id="00650672-a15f-433b-bb3b-b39393520fcb" config-ref="Amazon_S3_Configuration" sourceBucketName="#[vars.cBucketName]" sourceKey="#[vars.fileName]" destinationBucketName="#[vars.nBucketName]" destinationKey="#[vars.fileName]"/>
+		<s3:delete-object doc:name="Delete object" doc:id="8ba07776-a880-4610-a09d-42a25a526d29" config-ref="Amazon_S3_Configuration" bucketName="#[vars.cBucketName]" key="#[vars.fileName]"/>
+		<ee:transform doc:name="Transform Message" doc:id="f68b0b9b-04dd-4f63-9524-a3b64b0e257a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
